@@ -1,0 +1,454 @@
+using System;
+using System.Collections.Generic;
+
+public class Book
+{
+    public string Title { get; set; }
+    public string Author { get; set; }
+    public string ISBN { get; set; }
+    public string Publication { get; set; }
+    public bool IsReserved { get; set; }
+
+    public Book(string title, string author, string isbn, string publication)
+    {
+        Title = title;
+        Author = author;
+        ISBN = isbn;
+        Publication = publication;
+        IsReserved = false;
+    }
+
+    public void DisplayInfo()
+    {
+        Console.WriteLine($"Title: {Title}, Author: {Author}, ISBN: {ISBN}, Publication: {Publication}, Reserved: {IsReserved}");
+    }
+
+    public void UpdateDetails(string newTitle, string newAuthor, string newISBN, string newPublication)
+    {
+        Title = newTitle;
+        Author = newAuthor;
+        ISBN = newISBN;
+        Publication = newPublication;
+        Console.WriteLine("Book details updated successfully.");
+    }
+}
+
+public static class LibraryManagementSystem
+{
+    private static List<User> registeredUsers = new List<User>();
+    private static List<Book> books = new List<Book>(); 
+    private static User currentUser = null;
+
+    public static void Main(string[] args)
+    {
+        bool running = true;
+
+        while (running)
+        {
+            if (currentUser == null)
+            {
+                Console.WriteLine("\n--- Library Management System ---");
+                Console.WriteLine("1. Register");
+                Console.WriteLine("2. Login");
+                Console.WriteLine("3. Exit");
+                Console.Write("Choose an option: ");
+
+                try
+                {
+                    int choice = int.Parse(Console.ReadLine());
+                    switch (choice)
+                    {
+                        case 1:
+                            Register();
+                            break;
+                        case 2:
+                            Login();
+                            break;
+                        case 3:
+                            running = false;
+                            break;
+                        default:
+                            Console.WriteLine("Invalid option. Try again.");
+                            break;
+                    }
+                }
+                catch (FormatException)
+                {
+                    Console.WriteLine("Invalid input. Please enter a number.");
+                }
+            }
+            else
+            {
+                currentUser.DisplayMenu();
+                HandleMenuInput(currentUser);
+            }
+        }
+    }
+
+    private static void HandleMenuInput(User user)
+    {
+        Console.Write("Select an option: ");
+        
+        try
+        {
+            int choice = int.Parse(Console.ReadLine());
+
+            if (user is Librarian)
+            {
+                switch (choice)
+                {
+                    case 1: AddBook(); break;
+                    case 2: DeleteBook(); break;
+                    case 3: UpdateBook(); break;
+                    case 4: DisplayAllBooks(); break;
+                    case 5: SearchBooks(); break;
+                    case 6: Logout(); break;
+                    default: Console.WriteLine("Invalid option."); break;
+                }
+            }
+            else if (user is Student || user is Staff)
+            {
+                switch (choice)
+                {
+                    case 1: SearchBooks(); break;
+                    case 2: user.DisplayBorrowedBooks(); break;
+                    case 3: RequestOrBorrowBook(user); break;  
+                    case 4: Logout(); break;
+                    default: Console.WriteLine("Invalid option."); break;
+                }
+            }
+        }
+        catch (FormatException)
+        {
+            Console.WriteLine("Invalid input. Please enter a number.");
+        }
+    }
+
+    private static void AddBook()
+    {
+        Console.WriteLine("Enter Book Details:");
+        Console.Write("Title: ");
+        string title = Console.ReadLine();
+        Console.Write("Author: ");
+        string author = Console.ReadLine();
+        Console.Write("ISBN: ");
+        string isbn = Console.ReadLine();
+        Console.Write("Publication: ");
+        string publication = Console.ReadLine();
+
+        books.Add(new Book(title, author, isbn, publication));
+        Console.WriteLine("Book added successfully.");
+    }
+
+    private static void DeleteBook()
+    {
+        Console.Write("Enter ISBN of the book to delete: ");
+        string isbn = Console.ReadLine();
+        Book bookToRemove = books.Find(book => book.ISBN == isbn);
+        
+        if (bookToRemove != null)
+        {
+            books.Remove(bookToRemove);
+            Console.WriteLine("Book deleted successfully.");
+        }
+        else
+        {
+            Console.WriteLine("Book not found.");
+        }
+    }
+
+    private static void UpdateBook()
+    {
+        Console.Write("Enter ISBN of the book to update: ");
+        string isbn = Console.ReadLine();
+        Book bookToUpdate = books.Find(book => book.ISBN == isbn);
+
+        if (bookToUpdate != null)
+        {
+            Console.WriteLine("Enter new details for the book:");
+            Console.Write("Title: ");
+            string newTitle = Console.ReadLine();
+            Console.Write("Author: ");
+            string newAuthor = Console.ReadLine();
+            Console.Write("ISBN: ");
+            string newISBN = Console.ReadLine();
+            Console.Write("Publication: ");
+            string newPublication = Console.ReadLine();
+
+            bookToUpdate.UpdateDetails(newTitle, newAuthor, newISBN, newPublication);
+        }
+        else
+        {
+            Console.WriteLine("Book not found.");
+        }
+    }
+
+    private static void DisplayAllBooks()
+    {
+        Console.WriteLine("All books in the library:");
+        foreach (var book in books)
+        {
+            book.DisplayInfo();
+        }
+    }
+
+    private static void SearchBooks()
+    {
+        Console.Write("Enter search term (title or author): ");
+        string searchString = Console.ReadLine();
+        var results = books.FindAll(book => book.Title.Contains(searchString, StringComparison.OrdinalIgnoreCase) || 
+                                             book.Author.Contains(searchString, StringComparison.OrdinalIgnoreCase));
+
+        if (results.Count > 0)
+        {
+            Console.WriteLine("Search Results:");
+            foreach (var book in results)
+            {
+                book.DisplayInfo();
+            }
+        }
+        else
+        {
+            Console.WriteLine("No books found matching your search.");
+        }
+    }
+
+    private static void Register()
+    {
+        string id, name, password, role;
+
+        do
+        {
+            Console.Write("Enter your ID: ");
+            id = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                Console.WriteLine("ID cannot be empty. Please enter a valid ID.");
+            }
+        } while (string.IsNullOrWhiteSpace(id));
+
+        User existingUser = registeredUsers.Find(user => user.ID == id);
+        if (existingUser != null)
+        {
+            Console.WriteLine("A user with this ID already exists. Please try with a different ID.");
+            return;
+        }
+
+        do
+        {
+            Console.Write("Enter your Name: ");
+            name = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                Console.WriteLine("Name cannot be empty. Please enter a valid name.");
+            }
+        } while (string.IsNullOrWhiteSpace(name));
+
+        do
+        {
+            Console.Write("Enter your Password: ");
+            password = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                Console.WriteLine("Password cannot be empty. Please enter a valid password.");
+            }
+        } while (string.IsNullOrWhiteSpace(password));
+
+        do
+        {
+            Console.Write("Enter your Role (Student/Staff/Librarian): ");
+            role = Console.ReadLine().ToLower();
+            if (role != "student" && role != "staff" && role != "librarian")
+            {
+                Console.WriteLine("Invalid role. Please enter Student, Staff, or Librarian.");
+            }
+        } while (role != "student" && role != "staff" && role != "librarian");
+
+        if (role == "student")
+        {
+            Console.Write("Enter your Class: ");
+            string classInfo = Console.ReadLine();
+            registeredUsers.Add(new Student(id, name, password, classInfo));
+        }
+        else if (role == "staff")
+        {
+            Console.Write("Enter your Department: ");
+            string department = Console.ReadLine();
+            registeredUsers.Add(new Staff(id, name, password, department));
+        }
+        else if (role == "librarian")
+        {
+            registeredUsers.Add(new Librarian(id, name, password));
+        }
+
+        Console.WriteLine("Registration successful.");
+    }
+
+    private static void Login()
+    {
+        string id, name, password;
+
+        do
+        {
+            Console.Write("Enter your ID: ");
+            id = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                Console.WriteLine("ID cannot be empty. Please enter a valid ID.");
+            }
+        } while (string.IsNullOrWhiteSpace(id));
+
+        do
+        {
+            Console.Write("Enter your Name: ");
+            name = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                Console.WriteLine("Name cannot be empty. Please enter a valid name.");
+            }
+        } while (string.IsNullOrWhiteSpace(name));
+
+        do
+        {
+            Console.Write("Enter your Password: ");
+            password = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                Console.WriteLine("Password cannot be empty. Please enter a valid password.");
+            }
+        } while (string.IsNullOrWhiteSpace(password));
+
+        User user = registeredUsers.Find(u => u.ID == id && u.Name == name && u.Password == password);
+
+        if (user != null)
+        {
+            currentUser = user;
+            Console.WriteLine($"Login successful! Welcome, {user.Name}.");
+        }
+        else
+        {
+            Console.WriteLine("Invalid login credentials. Please try again.");
+        }
+    }
+
+    private static void Logout()
+    {
+        Console.WriteLine($"Goodbye, {currentUser.Name}.");
+        currentUser = null;
+    }
+
+    private static void RequestOrBorrowBook(User user)
+    {
+        Console.Write("Enter ISBN of the book to request/borrow: ");
+        string isbn = Console.ReadLine();
+        Book book = books.Find(b => b.ISBN == isbn);
+        
+        if (book != null)
+        {
+            if (!book.IsReserved)
+            {
+                book.IsReserved = true;
+                user.BorrowedBooks.Add(book);
+                Console.WriteLine("Book borrowed successfully.");
+            }
+            else
+            {
+                Console.WriteLine("Book is already reserved.");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Book not found.");
+        }
+    }
+}
+
+public abstract class User
+{
+    public string ID { get; }
+    public string Name { get; }
+    public string Password { get; }
+    public List<Book> BorrowedBooks { get; }
+
+    protected User(string id, string name, string password)
+    {
+        ID = id;
+        Name = name;
+        Password = password;
+        BorrowedBooks = new List<Book>();
+    }
+
+    public abstract void DisplayMenu();
+    public void DisplayBorrowedBooks()
+    {
+        if (BorrowedBooks.Count > 0)
+        {
+            Console.WriteLine("Books borrowed:");
+            foreach (var book in BorrowedBooks)
+            {
+                book.DisplayInfo();
+            }
+        }
+        else
+        {
+            Console.WriteLine("No books borrowed yet.");
+        }
+    }
+}
+
+public class Student : User
+{
+    public string Class { get; }
+
+    public Student(string id, string name, string password, string classInfo)
+        : base(id, name, password)
+    {
+        Class = classInfo;
+    }
+
+    public override void DisplayMenu()
+    {
+        Console.WriteLine("\n--- Student Menu ---");
+        Console.WriteLine("1. Search Books");
+        Console.WriteLine("2. View Borrowed Books");
+        Console.WriteLine("3. Request/Borrow a Book");
+        Console.WriteLine("4. Logout");
+    }
+}
+
+public class Staff : User
+{
+    public string Department { get; }
+
+    public Staff(string id, string name, string password, string department)
+        : base(id, name, password)
+    {
+        Department = department;
+    }
+
+    public override void DisplayMenu()
+    {
+        Console.WriteLine("\n--- Staff Menu ---");
+        Console.WriteLine("1. Search Books");
+        Console.WriteLine("2. View Borrowed Books");
+        Console.WriteLine("3. Request/Borrow a Book");
+        Console.WriteLine("4. Logout");
+    }
+}
+
+public class Librarian : User
+{
+    public Librarian(string id, string name, string password)
+        : base(id, name, password) { }
+
+    public override void DisplayMenu()
+    {
+        Console.WriteLine("\n--- Librarian Menu ---");
+        Console.WriteLine("1. Add Book");
+        Console.WriteLine("2. Delete Book");
+        Console.WriteLine("3. Update Book");
+        Console.WriteLine("4. Display All Books");
+        Console.WriteLine("5. Search Books");
+        Console.WriteLine("6. Logout");
+    }
+}
