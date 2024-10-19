@@ -8,6 +8,7 @@ public class Book
     public string ISBN { get; set; }
     public string Publication { get; set; }
     public bool IsReserved { get; set; }
+    public DateTime? DueDate { get; set; } // Nullable DateTime for when no book is borrowed
 
     public Book(string title, string author, string isbn, string publication)
     {
@@ -16,11 +17,18 @@ public class Book
         ISBN = isbn;
         Publication = publication;
         IsReserved = false;
+        DueDate = null;  // No due date when the book is not borrowed
     }
 
     public void DisplayInfo()
     {
         Console.WriteLine($"Title: {Title}, Author: {Author}, ISBN: {ISBN}, Publication: {Publication}, Reserved: {IsReserved}");
+
+        // Only display DueDate if the book is reserved (borrowed) and has a valid due date
+        if (IsReserved && DueDate.HasValue)
+        {
+            Console.WriteLine($"Due Date: {DueDate.Value.ToString("dd/MM/yyyy")}");
+        }
     }
 
     public void UpdateDetails(string newTitle, string newAuthor, string newISBN, string newPublication)
@@ -36,7 +44,7 @@ public class Book
 public static class LibraryManagementSystem
 {
     private static List<User> registeredUsers = new List<User>();
-    private static List<Book> books = new List<Book>(); 
+    private static List<Book> books = new List<Book>();
     private static User currentUser = null;
 
     public static void Main(string[] args)
@@ -111,9 +119,11 @@ public static class LibraryManagementSystem
                 switch (choice)
                 {
                     case 1: SearchBooks(); break;
-                    case 2: user.DisplayBorrowedBooks(); break;
+                    case 2: user.DisplayBorrowedBooks(); break; // Ensure this method exists
                     case 3: RequestOrBorrowBook(user); break;  
-                    case 4: Logout(); break;
+                    case 4: user.CheckFine(); break; // Added option to check fine
+                    case 5: user.RequestExtension(); break; // Added option to request extension
+                    case 6: Logout(); break;
                     default: Console.WriteLine("Invalid option."); break;
                 }
             }
@@ -318,42 +328,42 @@ public static class LibraryManagementSystem
             }
         } while (string.IsNullOrWhiteSpace(password));
 
-        User user = registeredUsers.Find(u => u.ID == id && u.Name == name && u.Password == password);
+        currentUser = registeredUsers.Find(user => user.ID == id && user.Name == name && user.Password == password);
 
-        if (user != null)
+        if (currentUser == null)
         {
-            currentUser = user;
-            Console.WriteLine($"Login successful! Welcome, {user.Name}.");
+            Console.WriteLine("Invalid credentials. Please try again.");
         }
         else
         {
-            Console.WriteLine("Invalid login credentials. Please try again.");
+            Console.WriteLine($"Welcome, {currentUser.Name}!");
         }
     }
 
     private static void Logout()
     {
-        Console.WriteLine($"Goodbye, {currentUser.Name}.");
         currentUser = null;
+        Console.WriteLine("You have logged out successfully.");
     }
 
     private static void RequestOrBorrowBook(User user)
     {
-        Console.Write("Enter ISBN of the book to request/borrow: ");
+        Console.Write("Enter the ISBN of the book you want to borrow: ");
         string isbn = Console.ReadLine();
-        Book book = books.Find(b => b.ISBN == isbn);
-        
-        if (book != null)
+        Book bookToBorrow = books.Find(book => book.ISBN == isbn);
+
+        if (bookToBorrow != null)
         {
-            if (!book.IsReserved)
+            if (bookToBorrow.IsReserved)
             {
-                book.IsReserved = true;
-                user.BorrowedBooks.Add(book);
-                Console.WriteLine("Book borrowed successfully.");
+                Console.WriteLine("Sorry, this book is already borrowed.");
             }
             else
             {
-                Console.WriteLine("Book is already reserved.");
+                bookToBorrow.IsReserved = true;
+                bookToBorrow.DueDate = DateTime.Now.AddDays(14); // Set due date to 14 days from now
+                Console.WriteLine("Book borrowed successfully. Due date is: " + bookToBorrow.DueDate.Value.ToString("dd/MM/yyyy"));
+                user.BorrowedBooks.Add(bookToBorrow);
             }
         }
         else
@@ -363,14 +373,14 @@ public static class LibraryManagementSystem
     }
 }
 
-public abstract class User
+public class User
 {
     public string ID { get; }
     public string Name { get; }
     public string Password { get; }
     public List<Book> BorrowedBooks { get; }
 
-    protected User(string id, string name, string password)
+    public User(string id, string name, string password)
     {
         ID = id;
         Name = name;
@@ -378,21 +388,55 @@ public abstract class User
         BorrowedBooks = new List<Book>();
     }
 
-    public abstract void DisplayMenu();
+    public void DisplayMenu()
+    {
+        Console.WriteLine("\n--- User Menu ---");
+        Console.WriteLine("1. Search Books");
+        Console.WriteLine("2. View Borrowed Books");
+        Console.WriteLine("3. Request/Borrow a Book");
+        Console.WriteLine("4. Check Fine");
+        Console.WriteLine("5. Request Extension");
+        Console.WriteLine("6. Logout");
+    }
+
     public void DisplayBorrowedBooks()
     {
-        if (BorrowedBooks.Count > 0)
+        Console.WriteLine("Borrowed Books:");
+        if (BorrowedBooks.Count == 0)
         {
-            Console.WriteLine("Books borrowed:");
+            Console.WriteLine("No books borrowed.");
+        }
+        else
+        {
             foreach (var book in BorrowedBooks)
             {
                 book.DisplayInfo();
             }
         }
-        else
+    }
+
+    public void CheckFine()
+    {
+        int totalFine = 0;
+
+        foreach (var book in BorrowedBooks)
         {
-            Console.WriteLine("No books borrowed yet.");
+            if (book.DueDate.HasValue && DateTime.Now > book.DueDate.Value)
+            {
+                int overdueDays = (DateTime.Now - book.DueDate.Value).Days;
+                totalFine += overdueDays * 50; // Fine calculation
+            }
         }
+
+        Console.WriteLine($"Your total fine is: {totalFine}");
+    }
+
+    public void RequestExtension()
+    {
+        Console.WriteLine("Requesting an extension is subject to approval.");
+        // Implement extension logic here (could involve user input or admin approval)
+        // For simplicity, just providing a message for now.
+        Console.WriteLine("Extension request submitted.");
     }
 }
 
@@ -400,19 +444,9 @@ public class Student : User
 {
     public string Class { get; }
 
-    public Student(string id, string name, string password, string classInfo)
-        : base(id, name, password)
+    public Student(string id, string name, string password, string classInfo) : base(id, name, password)
     {
         Class = classInfo;
-    }
-
-    public override void DisplayMenu()
-    {
-        Console.WriteLine("\n--- Student Menu ---");
-        Console.WriteLine("1. Search Books");
-        Console.WriteLine("2. View Borrowed Books");
-        Console.WriteLine("3. Request/Borrow a Book");
-        Console.WriteLine("4. Logout");
     }
 }
 
@@ -420,35 +454,16 @@ public class Staff : User
 {
     public string Department { get; }
 
-    public Staff(string id, string name, string password, string department)
-        : base(id, name, password)
+    public Staff(string id, string name, string password, string department) : base(id, name, password)
     {
         Department = department;
-    }
-
-    public override void DisplayMenu()
-    {
-        Console.WriteLine("\n--- Staff Menu ---");
-        Console.WriteLine("1. Search Books");
-        Console.WriteLine("2. View Borrowed Books");
-        Console.WriteLine("3. Request/Borrow a Book");
-        Console.WriteLine("4. Logout");
     }
 }
 
 public class Librarian : User
 {
-    public Librarian(string id, string name, string password)
-        : base(id, name, password) { }
-
-    public override void DisplayMenu()
+    public Librarian(string id, string name, string password) : base(id, name, password)
     {
-        Console.WriteLine("\n--- Librarian Menu ---");
-        Console.WriteLine("1. Add Book");
-        Console.WriteLine("2. Delete Book");
-        Console.WriteLine("3. Update Book");
-        Console.WriteLine("4. Display All Books");
-        Console.WriteLine("5. Search Books");
-        Console.WriteLine("6. Logout");
     }
 }
+
